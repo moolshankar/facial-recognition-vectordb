@@ -22,27 +22,25 @@ class DetectionService:
     
     async def process_frame(self, frame: np.ndarray) -> np.ndarray:
         """Process a single frame and return annotated frame"""
-        # Create a hash of the frame for caching
-        frame_hash = hashlib.md5(frame.tobytes()).hexdigest()
-        
-        # Check cache first
-        cached_result = self.cache_service.get(frame_hash)
-        if cached_result:
-            return self._annotate_frame(frame, cached_result)
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        faces = face_recognition.face_locations(rgb_frame, model=self.detection_method)
+        for (x, y, w, h) in faces:
+            face_img = rgb_frame[y:y+h, x:x+w]
+            face_hash = str(hash(face_img.tobytes()))
+            # Check cache first
+            cached_result = self.cache_service.get(face_hash)
+            if cached_result:
+                return self._annotate_frame(frame, cached_result)
         
         # If not in cache, process asynchronously without blocking
-        asyncio.create_task(self._process_and_cache_frame(frame, frame_hash))
+        asyncio.create_task(self._process_and_cache_frame(frame))
         
         # Return original frame
         return frame
     
-    async def _process_and_cache_frame(self, frame: np.ndarray, frame_hash: str) -> None:
+    async def _process_and_cache_frame(self, frame: np.ndarray) -> None:
         """Process frame and update cache asynchronously"""
-        async with self._processing_lock:
-            # Double-check cache to avoid duplicate processing
-            if self.cache_service.get(frame_hash):
-                return
-            
+        async with self._processing_lock:         
             try:
                 # Detect faces
                 rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
@@ -58,6 +56,9 @@ class DetectionService:
                     user_repo = UserRepository(session)
                     
                     for i, encoding in enumerate(encodings):
+                        (x, y, w, h) = face_locations[i]
+                        face_img = rgb_frame[y:y+h, x:x+w]
+                        face_hash = str(hash(face_img.tobytes()))
                         similar_faces = await embedding_repo.find_similar_faces(
                             encoding, 
                             threshold=settings.face_recognition_tolerance
@@ -74,7 +75,6 @@ class DetectionService:
                                     'phone': user.phone_number,
                                     'confidence': confidence
                                 })
-                                print(f"Match added: {matches}")
                         else:
                             matches.append({
                                 'bbox': face_locations[i],
@@ -82,14 +82,12 @@ class DetectionService:
                                 'phone': '',
                                 'confidence': 0.0
                             })
-                            print(f"Unknown Match added: {matches}")
                 
-                # Cache the results
-                self.cache_service.set(frame_hash, matches)
+                        # Cache the results
+                        self.cache_service.set(face_hash, matches)
                 
             except Exception as e:
                 print(f"Error processing frame: {e}")
-                self.cache_service.set(frame_hash, [])
     
     def _annotate_frame(self, frame: np.ndarray, matches: List[Dict[str, Any]]) -> np.ndarray:
         """Annotate frame with face detection results"""
