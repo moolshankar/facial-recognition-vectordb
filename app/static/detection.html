@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Detection</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .back-btn {
+            background-color: #6c757d;
+            color: white;
+            text-decoration: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+        #video-stream {
+            max-width: 100%;
+            height: auto;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+        }
+        .status {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #e9ecef;
+            border-radius: 5px;
+        }
+        .controls {
+            margin-top: 20px;
+        }
+        .btn {
+            background-color: #007bff;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .btn:hover {
+            background-color: #0056b3;
+        }
+        .btn.stop {
+            background-color: #dc3545;
+        }
+        .btn.stop:hover {
+            background-color: #c82333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <a href="/" class="back-btn">← Back to Home</a>
+        
+        <h1>Live Face Detection</h1>
+        
+        <div>
+            <img id="video-stream" src="/api/video_feed" alt="Video Stream">
+        </div>
+        
+        <div class="status">
+            <p>Status: <span id="stream-status">Active</span></p>
+            <p>Real-time face detection and recognition is running</p>
+        </div>
+        
+        <div class="controls">
+            <button class="btn" onclick="startStream()">Start Stream</button>
+            <button class="btn stop" onclick="stopStream()">Stop Stream</button>
+        </div>
+    </div>
+
+    <script>
+        const videoImg = document.getElementById('video-stream');
+        const statusSpan = document.getElementById('stream-status');
+        
+        function startStream() {
+            videoImg.src = '/api/video_feed?' + new Date().getTime();
+            statusSpan.textContent = 'Active';
+        }
+        
+        function stopStream() {
+            videoImg.src = '';
+            statusSpan.textContent = 'Stopped';
+        }
+        
+        // Handle stream errors
+        videoImg.onerror = function() {
+            statusSpan.textContent = 'Error - Camera not accessible';
+        };
+    </script>
+</body>
+</html>
