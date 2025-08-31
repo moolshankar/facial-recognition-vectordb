@@ -18,6 +18,7 @@ class DetectionService:
             ttl_seconds=settings.cache_ttl_seconds
         )
         self._processing_lock = asyncio.Lock()
+        self.detection_method = "hog"
     
     async def process_frame(self, frame: np.ndarray) -> np.ndarray:
         """Process a single frame and return annotated frame"""
@@ -45,18 +46,10 @@ class DetectionService:
             try:
                 # Detect faces
                 rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                face_locations = face_recognition.face_locations(rgb_frame)
-                
-                if not face_locations:
-                    self.cache_service.set(frame_hash, [])
-                    return
-                
+                face_locations = face_recognition.face_locations(rgb_frame, model=self.detection_method)
                 # Extract encodings
-                encodings = await self.face_service.extract_face_encodings(rgb_frame, face_locations)
-                
-                if not encodings:
-                    self.cache_service.set(frame_hash, [])
-                    return
+                # encodings = await self.face_service.extract_face_encodings(rgb_frame, face_locations)
+                encodings = face_recognition.face_encodings(rgb_frame, face_locations)
                 
                 # Find matches in database
                 matches = []
@@ -72,6 +65,7 @@ class DetectionService:
                         
                         if similar_faces:
                             user_id, confidence = similar_faces[0]
+                            print(f"Similar face found: {user_id}, confidence: {confidence}")
                             user = await user_repo.get_user_by_id(user_id)
                             if user:
                                 matches.append({
@@ -80,6 +74,7 @@ class DetectionService:
                                     'phone': user.phone_number,
                                     'confidence': confidence
                                 })
+                                print(f"Match added: {matches}")
                         else:
                             matches.append({
                                 'bbox': face_locations[i],
@@ -87,6 +82,7 @@ class DetectionService:
                                 'phone': '',
                                 'confidence': 0.0
                             })
+                            print(f"Unknown Match added: {matches}")
                 
                 # Cache the results
                 self.cache_service.set(frame_hash, matches)

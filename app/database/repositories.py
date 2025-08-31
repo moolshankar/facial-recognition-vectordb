@@ -38,7 +38,8 @@ class FaceEmbeddingRepository:
         return face_embedding
     
     async def find_similar_faces(self, query_embedding: np.ndarray, threshold: float = 0.6, limit: int = 5) -> List[Tuple[str, float]]:
-        query_vector = query_embedding.tolist()
+        # query_vector = query_embedding.tolist()
+        query_embedding_str = self.numpy_to_pgvector(query_embedding)
         
         # Use cosine distance for similarity search
         query = text("""
@@ -52,7 +53,7 @@ class FaceEmbeddingRepository:
         result = await self.session.execute(
             query,
             {
-                "query_embedding": query_vector,
+                "query_embedding": query_embedding_str,
                 "threshold": threshold,
                 "limit": limit
             }
@@ -77,3 +78,7 @@ class FaceEmbeddingRepository:
             }
             for row in result.fetchall()
         ]
+
+    def numpy_to_pgvector(self, embedding: np.ndarray) -> str:
+        """Convert a NumPy array to a pgvector-compatible string."""
+        return f"[{','.join(map(str, embedding))}]"
